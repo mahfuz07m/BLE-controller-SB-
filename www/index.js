@@ -5,6 +5,7 @@ const SERVICE_UUID = "a0d771fc-bb96-4c65-8c6e-3e1a2b7f9d10";
 const CHAR_UUID = "a0d771fd-bb96-4c65-8c6e-3e1a2b7f9d10";
 
 let device = null;
+let currentDeviceId = null;
 let characteristic = null;
 let connected = false;
 let writeChain = Promise.resolve();
@@ -54,42 +55,43 @@ async function sendCmd(char) {
   sendBytes(new TextEncoder().encode(char));
 }
 
+async function handleFound(device) {
+  try {
+    await BleClient.stopLEScan();
+    currentDeviceId = device.deviceId;
+    setStatus(false, "Connecting…");
+
+    await BleClient.connect(device.deviceId, onDisconnected);
+
+    characteristic = {
+      deviceId: device.deviceId,
+      serviceUuid: SERVICE_UUID,
+      characteristicUuid: CHAR_UUID,
+    };
+
+    console.log("BLE connected:", device.deviceId);
+    setStatus(true);
+    startHeartbeat();
+  } catch (err) {
+    console.error("connect step failed", err);
+    setStatus(false, "Connection failed");
+  }
+}
+
 async function connect() {
   try {
     await BleClient.initialize({ androidNeverForLocation: true });
     await BleClient.requestEnable();
 
     let found = false;
+    setStatus(false, "Scanning…");
 
-    await BleClient.requestLEScan(
-      { services: [SERVICE_UUID] },
-      async (result) => {
-        if (found) return;
-        found = true;
-        await BleClient.stopLEScan();
-
-        device = result.device;
-        setStatus(false, "Connecting…");
-        await BleClient.connect(device.deviceId, onDisconnected);
-
-        characteristic = {
-          deviceId: device.deviceId,
-          serviceUuid: SERVICE_UUID,
-          characteristicUuid: CHAR_UUID,
-        };
-
-        setStatus(true);
-        startHeartbeat();
-      },
-    );
-    // // await BleClient.requestDevice({
-    // //       services: [],
-    // //       optionalServices: [SERVICE_UUID],
-    // //     });
-    // // connect directly to gatt server
-    // await BleClient.connect(device.deviceId, () => {
-    //   onDisconnected();
-    // });
+    await BleClient.requestLEScan({ services: [SERVICE_UUID] }, (result) => {
+      if (found) return;
+      found = true;
+      device = result.device;
+      handleFound(device);
+    });
 
     setTimeout(async () => {
       if (!found) {
@@ -98,23 +100,19 @@ async function connect() {
       }
     }, 8000);
   } catch (err) {
-    console.error(err);
-    setStatus(false);
-
-    const isCancelled =
-      err.name === "NotFoundError" ||
-      (err.message && err.message.toLowerCase().includes("cancelled"));
-    if (isCancelled) {
-      // user just cancelled the chooser
-      console.log("User cancelled the device selection picker window.");
-    } else {
-      alert("Failed to connect: " + (err.message || err));
-    }
+    console.error("connect() failed", err);
+    setStatus(false, "Connect Error.");
   }
 }
 
-function onDisconnected() {
+function onDisconnected(deviceId) {
+  if (deviceId !== currentDeviceId) {
+    console.log("Ignoring stale disconnect for: ", deviceId);
+    return; // guards against a disconnect callback from an unwanted attempt
+  }
+  console.log("BLE disconnected: ", deviceId);
   characteristic = null;
+  currentDeviceId = null;
   writeChain = Promise.resolve();
   setStatus(false);
   stopHeartbeat();
@@ -127,7 +125,7 @@ async function disconnect() {
   } catch (err) {
     console.error("disconnect failed", err);
   } finally {
-    onDisconnected();
+    onDisconnected(device.deviceId);
   }
 }
 
