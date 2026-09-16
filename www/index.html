@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Monster Bot Controller</title>
+    <style>
+      :root {
+        --navy: #0f3552;
+        --navy-dark: #0a2740;
+
+        --orange: #e8792e;
+        --orange-dark: #c4611f;
+
+        --white: #ffffff;
+
+        --unit: 22vmin;
+
+        --gap: 0.2vmin;
+
+        --dpad-main: calc(var(--unit) * 1.28);
+        --dpad-side: calc(var(--unit) * 0.78);
+
+        --action-big: calc(var(--unit) * 1.05);
+        --action-small: calc(var(--unit) * 0.82);
+
+        --action-gap: 0.9vmin;
+      }
+
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+
+        width: 100%;
+        height: 100%;
+
+        background: var(--navy);
+
+        overflow: hidden;
+
+        overscroll-behavior: none;
+
+        touch-action: none;
+
+        user-select: none;
+        -webkit-user-select: none;
+
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+      }
+
+      #topbar {
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        gap: 2.5vmin;
+
+        padding: 1.2vmin 0;
+
+        background: rgba(0, 0, 0, 0.22);
+
+        flex-shrink: 0;
+      }
+
+      #dot {
+        width: 2vmin;
+        height: 2vmin;
+
+        min-width: 10px;
+        min-height: 10px;
+
+        border-radius: 50%;
+
+        background: #e05252;
+
+        box-shadow: 0 0 6px rgba(224, 82, 82, 0.8);
+
+        transition:
+          background 0.2s,
+          box-shadow 0.2s;
+      }
+
+      #dot.connected {
+        background: #4fd67a;
+
+        box-shadow: 0 0 6px rgba(79, 214, 122, 0.8);
+      }
+
+      #statusText {
+        color: var(--white);
+
+        font-size: 2.6vmin;
+
+        opacity: 0.85;
+
+        letter-spacing: 0.02em;
+      }
+
+      #connectBtn {
+        font-size: 2.6vmin;
+
+        padding: 0.8vmin 2.6vmin;
+
+        border-radius: 999px;
+
+        border: none;
+
+        background: var(--orange);
+
+        color: var(--white);
+
+        font-weight: 600;
+
+        cursor: pointer;
+
+        touch-action: manipulation;
+      }
+
+      #connectBtn:active {
+        background: var(--orange-dark);
+      }
+
+      #controls {
+        flex: 1;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: space-between;
+
+        padding: 0 5vmin;
+
+        min-height: 0;
+      }
+
+      .pad {
+        display: grid;
+
+        align-items: center;
+        justify-items: center;
+
+        gap: var(--gap);
+
+        flex-shrink: 0;
+      }
+
+      #dpad {
+        grid-template-columns:
+          var(--dpad-side)
+          var(--gap)
+          var(--dpad-main)
+          var(--gap)
+          var(--dpad-side);
+
+        grid-template-rows:
+          var(--dpad-main)
+          var(--dpad-side)
+          var(--dpad-main);
+        transform: translateX(1vmin);
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--orange);
+        color: var(--white);
+        transition:
+          background 0.08s,
+          transform 0.08s,
+          box-shadow 0.08s;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        box-shadow: 0 0.5vmin 1vmin rgba(0, 0, 0, 0.18);
+      }
+
+      .btn.pressed {
+        background: var(--orange-dark);
+        transform: scale(0.93);
+        box-shadow: 0 0.15vmin 0.4vmin rgba(0, 0, 0, 0.25);
+      }
+
+      .btn svg {
+        width: 52%;
+        height: 52%;
+        display: block;
+      }
+
+      #dUp,
+      #dDown {
+        width: var(--dpad-main);
+        height: var(--dpad-main);
+        border-radius: 50%;
+        clip-path: none;
+      }
+
+      #dUp .arrow,
+      #dDown .arrow {
+        font-size: calc(var(--dpad-main) * 0.34);
+        line-height: 1;
+        transform: translateY(-1%);
+      }
+
+      #dLeft {
+        grid-column: 1;
+        grid-row: 2;
+        width: var(--dpad-side);
+        height: var(--dpad-side);
+        clip-path: polygon(0% 50%, 38% 0%, 100% 0%, 100% 100%, 38% 100%);
+      }
+
+      #dRight {
+        grid-column: 5;
+        grid-row: 2;
+        width: var(--dpad-side);
+        height: var(--dpad-side);
+        clip-path: polygon(100% 50%, 62% 100%, 0% 100%, 0% 0%, 62% 0%);
+      }
+
+      #dLeft .arrow,
+      #dRight .arrow {
+        font-size: calc(var(--dpad-side) * 0.4);
+        line-height: 1;
+      }
+
+      #dUp {
+        grid-column: 3;
+        grid-row: 1;
+      }
+
+      #dDown {
+        grid-column: 3;
+        grid-row: 3;
+      }
+
+      #actions {
+        grid-template-columns:
+          var(--action-big)
+          var(--action-gap)
+          var(--action-big);
+        grid-template-rows:
+          var(--action-small)
+          var(--action-big)
+          var(--action-small);
+        column-gap: var(--action-gap);
+        row-gap: 0.55vmin;
+
+        transform: translateX(-1vmin);
+      }
+
+      #aTriangle {
+        grid-column: 2;
+        grid-row: 1;
+        width: var(--action-small);
+        height: var(--action-small);
+
+        border-radius: 50%;
+      }
+
+      #aSquare {
+        grid-column: 1;
+        grid-row: 2;
+
+        width: var(--action-big);
+        height: var(--action-big);
+
+        border-radius: 50%;
+
+        margin-right: -0.4vmin;
+      }
+
+      #aCircle {
+        grid-column: 3;
+        grid-row: 2;
+
+        width: var(--action-big);
+        height: var(--action-big);
+
+        border-radius: 50%;
+
+        margin-left: -0.4vmin;
+      }
+
+      #aCross {
+        grid-column: 2;
+        grid-row: 3;
+
+        width: var(--action-small);
+        height: var(--action-small);
+
+        border-radius: 50%;
+      }
+
+      #brand {
+        color: rgba(255, 255, 255, 0.25);
+
+        font-size: 2.4vmin;
+
+        font-weight: 700;
+
+        letter-spacing: 0.15em;
+
+        writing-mode: vertical-rl;
+
+        text-orientation: mixed;
+
+        user-select: none;
+
+        pointer-events: none;
+        margin: 0 2vmin;
+      }
+
+      #rotateWarning {
+        display: none;
+
+        position: fixed;
+
+        inset: 0;
+
+        background: var(--navy-dark);
+
+        color: var(--white);
+
+        z-index: 9999;
+
+        align-items: center;
+        justify-content: center;
+
+        text-align: center;
+
+        padding: 8vw;
+
+        font-size: 5vw;
+
+        flex-direction: column;
+
+        gap: 4vw;
+      }
+      @media (orientation: portrait) {
+        #rotateWarning {
+          display: flex;
+        }
+        #app {
+          display: none !important;
+        }
+      }
+      @media (max-height: 500px) and (orientation: landscape) {
+        :root {
+          --unit: 24vmin;
+        }
+        #topbar {
+          padding: 0.8vmin 0;
+        }
+        #controls {
+          padding: 0 4vmin;
+        }
+        #brand {
+          font-size: 2vmin;
+        }
+      }
+    </style>
+    <!-- <script type="importmap">
+      {
+        "imports": {
+          "@capacitor-community/bluetooth-le": "../node_modules/@capacitor-community/bluetooth-le/dist/esm/index.js"
+        }
+      }
+    </script> -->
+  </head>
+  <body>
+    <div id="rotateWarning">
+      <div style="font-size: 12vw">&#8635;</div>
+      <div>Rotate your phone to landscape<br />to use the controller</div>
+    </div>
+
+    <div id="app" style="display: flex; flex-direction: column; height: 100%">
+      <div id="topbar">
+        <div id="dot"></div>
+        <div id="statusText">Disconnected</div>
+        <button id="connectBtn">Connect</button>
+      </div>
+
+      <div id="controls">
+        <!-- D-pad: Up/Down/Triangle-assist etc. Left+Right are one-tap 180 spins -->
+        <div class="pad" id="dpad">
+          <div class="btn" id="dUp">
+            <span class="arrow arrow-ud">&#9650;</span>
+          </div>
+          <div class="btn" id="dLeft">
+            <span class="arrow arrow-lr">&#9664;</span>
+          </div>
+          <div class="btn" id="dRight">
+            <span class="arrow arrow-lr">&#9654;</span>
+          </div>
+          <div class="btn" id="dDown">
+            <span class="arrow arrow-ud">&#9660;</span>
+          </div>
+        </div>
+
+        <div id="brand">MONSTER&nbsp;BOT</div>
+
+        <!-- Action diamond: Triangle / Square / Circle / Cross -->
+        <div class="pad" id="actions">
+          <div class="btn" id="aTriangle">
+            <svg viewBox="0 0 100 100">
+              <polygon
+                points="50,15 85,80 15,80"
+                fill="none"
+                stroke="white"
+                stroke-width="8"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </div>
+          <div class="btn" id="aSquare">
+            <svg viewBox="0 0 100 100">
+              <rect
+                x="20"
+                y="20"
+                width="60"
+                height="60"
+                fill="none"
+                stroke="white"
+                stroke-width="8"
+              />
+            </svg>
+          </div>
+          <div class="btn" id="aCircle">
+            <svg viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="32"
+                fill="none"
+                stroke="white"
+                stroke-width="8"
+              />
+            </svg>
+          </div>
+          <div class="btn" id="aCross">
+            <svg viewBox="0 0 100 100">
+              <line
+                x1="25"
+                y1="25"
+                x2="75"
+                y2="75"
+                stroke="white"
+                stroke-width="8"
+                stroke-linecap="round"
+              />
+              <line
+                x1="75"
+                y1="25"
+                x2="25"
+                y2="75"
+                stroke="white"
+                stroke-width="8"
+                stroke-linecap="round"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="index.js"></script>
+  </body>
+</html>
